@@ -8,14 +8,28 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from app.api.routes import health_check, router  # noqa: E402
+from app.api.routes import create_router  # noqa: E402
+
+
+class _DummyRunner:
+    def run(self, user_request: str):
+        raise AssertionError("run should not be called in health tests")
+
+
+class _DummyTraceStore:
+    def get(self, trace_id: str):
+        raise AssertionError("get should not be called in health tests")
 
 
 class HealthCheckTestCase(unittest.TestCase):
-    def test_health_handler_returns_ok(self) -> None:
-        self.assertEqual(health_check(), {"status": "ok"})
-
-    def test_health_route_is_registered(self) -> None:
+    def test_router_registers_health_route(self) -> None:
+        router = create_router(_DummyRunner(), _DummyTraceStore())
         paths = {route.path for route in router.routes if hasattr(route, "path")}
 
         self.assertIn("/health", paths)
+
+    def test_health_endpoint_returns_ok(self) -> None:
+        router = create_router(_DummyRunner(), _DummyTraceStore())
+        route = next(route for route in router.routes if getattr(route, "path", None) == "/health")
+
+        self.assertEqual(route.endpoint(), {"status": "ok"})
