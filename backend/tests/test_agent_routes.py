@@ -12,8 +12,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from app.api.routes import create_router  # noqa: E402
-from app.api.schemas import RunAgentRequest  # noqa: E402
+from app.api.routes import create_router
+from app.api.schemas import RunAgentRequest
 
 
 @dataclass
