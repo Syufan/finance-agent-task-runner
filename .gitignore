@@ -1,21 +1,21 @@
+# Reference / local notes
 doc/reference.docx
 commit.md
-.DS_Store
-.venv/
-__pycache__/
-*.pyc
-.env
-.vscode/
-backend/.DS_Store
-.DS_Store
-.DS_Store
-backend/.DS_Store
-backend/src/.DS_Store
-doc/~$ference.docx
+doc/~$*.docx
 doc/finance_agent_core_objects_architecture.pdf
 doc/backend.md
+
+# macOS
 .DS_Store
-backend/.DS_Store
-/backend/src/backend.egg-info
-backend/.DS_Store
-.DS_Store
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environment
+.env
+
+# Editor
+.vscode/
