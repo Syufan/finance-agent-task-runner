@@ -6,3 +6,16 @@ __pycache__/
 *.pyc
 .env
 .vscode/
+backend/.DS_Store
+.DS_Store
+.DS_Store
+backend/.DS_Store
+backend/src/.DS_Store
+doc/~$ference.docx
+doc/finance_agent_core_objects_architecture.pdf
+doc/backend.md
+.DS_Store
+backend/.DS_Store
+/backend/src/backend.egg-info
+backend/.DS_Store
+.DS_Store
