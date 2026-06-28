@@ -3,6 +3,7 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
+from app.agent.planner import Planner
 from app.api.routes import create_router
 from app.agent.runner import AgentRunner
 from app.agent.trace import TraceStore
@@ -16,7 +17,9 @@ def _build_webserver() -> FastAPI:
     )
 
     trace_store = TraceStore()
-    agent_runner = AgentRunner(trace_store=trace_store)
+    planner = Planner()
+    
+    agent_runner = AgentRunner(planner=planner, trace_store=trace_store)
     
     router = create_router(agent_runner=agent_runner, trace_store=trace_store)
 
