@@ -1,13 +1,12 @@
-from __future__ import annotations
+from app.tools.base import Tool
 
 
 class ToolRegistry:
     def __init__(self) -> None:
-        self._tools: dict[str, object] = {}
+        self._tools: dict[str, Tool] = {}
 
-    def register(self, tool) -> None:
-        tool_name = getattr(tool, "name", tool.__class__.__name__)
-        self._tools[tool_name] = tool
+    def register(self, tool: Tool) -> None:
+        self._tools[tool.name] = tool
 
-    def get(self, tool_name: str):
+    def get(self, tool_name: str) -> Tool | None:
         return self._tools.get(tool_name)
