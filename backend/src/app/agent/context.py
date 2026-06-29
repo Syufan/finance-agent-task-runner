@@ -23,15 +23,3 @@ class AgentContext:
     policy_lookup_state: LookupState = LookupState.NOT_STARTED
 
     error: AgentError | None = None
-
-    @property
-    def invoice_lookup_attempted(self) -> bool:
-        return self.invoice_lookup_state != LookupState.NOT_STARTED
-
-    @property
-    def po_lookup_attempted(self) -> bool:
-        return self.po_lookup_state != LookupState.NOT_STARTED
-
-    @property
-    def policy_lookup_attempted(self) -> bool:
-        return self.policy_lookup_state != LookupState.NOT_STARTED
