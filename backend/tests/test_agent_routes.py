@@ -40,8 +40,8 @@ class FakeStep:
 @dataclass
 class FakeTrace:
     traceId: str
-    userInput: str
-    steps: list[FakeStep]
+    userRequest: str
+    steps: list[dict]
     finalAnswer: str
 
 
@@ -64,19 +64,19 @@ class FakeTraceStore:
         self.requested_ids: list[str] = []
         self.trace = FakeTrace(
             traceId="trace-123",
-            userInput="Please check invoice INV-1001",
+            userRequest="Please check invoice INV-1001",
             steps=[
-                FakeStep(
-                    stepId="step-001",
-                    stepName="Lookup invoice",
-                    toolName="invoice_lookup",
-                    input={"invoiceId": "INV-1001"},
-                    output={"invoiceId": "INV-1001"},
-                    status="success",
-                    error=None,
-                    startedAt=datetime(2026, 6, 28, 10, 0, tzinfo=timezone.utc),
-                    durationMs=5,
-                )
+                {
+                    "stepId": "step-001",
+                    "stepName": "Lookup invoice",
+                    "toolName": "invoice_lookup",
+                    "input": {"invoiceId": "INV-1001"},
+                    "output": {"invoiceId": "INV-1001"},
+                    "status": "success",
+                    "error": None,
+                    "startedAt": datetime(2026, 6, 28, 10, 0, tzinfo=timezone.utc),
+                    "durationMs": 5,
+                }
             ],
             finalAnswer="mocked answer",
         )

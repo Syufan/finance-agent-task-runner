@@ -33,18 +33,18 @@ def create_router(agent_runner: AgentRunner, trace_store: TraceStore) -> APIRout
 
         return TraceResponse(
             traceId=trace.traceId,
-            userInput=trace.userInput,
+            userInput=trace.userRequest,
             steps=[
                 StepResponse(
-                    stepId=step.stepId,
-                    stepName=step.stepName,
-                    toolName=step.toolName,
-                    input=step.input,
-                    output=step.output,
-                    status=step.status,
-                    error=step.error,
-                    startedAt=step.startedAt,
-                    durationMs=step.durationMs,
+                    stepId=step["stepId"],
+                    stepName=step["stepName"],
+                    toolName=step["toolName"],
+                    input=step["input"],
+                    output=step["output"],
+                    status=step["status"],
+                    error=step["error"],
+                    startedAt=step["startedAt"],
+                    durationMs=step["durationMs"],
                 )
                 for step in trace.steps
             ],
