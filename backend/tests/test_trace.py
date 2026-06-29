@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import sys
 import unittest
 
@@ -20,35 +21,59 @@ class TraceTestCase(unittest.TestCase):
         self.assertNotEqual(trace.traceId, "")
 
     def test_trace_store_returns_saved_trace(self) -> None:
-        trace_store = TraceStore()
-        trace = AgentTrace(userRequest="Check invoice INV-1001")
+        with TemporaryDirectory() as temp_dir:
+            trace_store = TraceStore(directory=Path(temp_dir))
+            trace = AgentTrace(userRequest="Check invoice INV-1001")
 
-        trace_store.save(trace)
+            trace_store.save(trace)
+            saved_trace = trace_store.get(trace.traceId)
 
-        self.assertIs(trace_store.get(trace.traceId), trace)
+            self.assertIsNotNone(saved_trace)
+            assert saved_trace is not None
+            self.assertEqual(saved_trace.traceId, trace.traceId)
+            self.assertEqual(saved_trace.userRequest, trace.userRequest)
 
     def test_trace_step_can_be_saved_in_trace_steps(self) -> None:
-        trace_store = TraceStore()
-        trace = AgentTrace(userRequest="Check invoice INV-1001")
-        step = TraceStep(
-            stepId="step-001",
-            stepName="invoice_lookup",
-            toolName="invoice_lookup",
-            input={"invoiceId": "INV-1001"},
-            output={"invoiceId": "INV-1001"},
-            status="success",
-            error=None,
-            startedAt=datetime(2026, 6, 29, 10, 0, 0),
-            durationMs=8,
-        )
+        with TemporaryDirectory() as temp_dir:
+            trace_store = TraceStore(directory=Path(temp_dir))
+            trace = AgentTrace(userRequest="Check invoice INV-1001")
+            step = TraceStep(
+                stepId="step-001",
+                stepName="invoice_lookup",
+                toolName="invoice_lookup",
+                input={"invoiceId": "INV-1001"},
+                output={"invoiceId": "INV-1001"},
+                status="success",
+                error=None,
+                startedAt=datetime(2026, 6, 29, 10, 0, 0),
+                durationMs=8,
+            )
 
-        trace.steps.append(step)
-        trace_store.save(trace)
-        saved_trace = trace_store.get(trace.traceId)
+            trace.steps.append(step.__dict__)
+            trace_store.save(trace)
+            saved_trace = trace_store.get(trace.traceId)
 
-        self.assertIsNotNone(saved_trace)
-        assert saved_trace is not None
-        self.assertEqual(saved_trace.steps, [step])
+            self.assertIsNotNone(saved_trace)
+            assert saved_trace is not None
+            self.assertEqual(len(saved_trace.steps), 1)
+            self.assertEqual(saved_trace.steps[0]["stepId"], "step-001")
+            self.assertEqual(saved_trace.steps[0]["startedAt"], datetime(2026, 6, 29, 10, 0, 0))
+
+    def test_trace_store_reads_saved_trace_from_disk(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            directory = Path(temp_dir)
+            writer_store = TraceStore(directory=directory)
+            trace = AgentTrace(userRequest="Check invoice INV-1001")
+
+            writer_store.save(trace)
+
+            reader_store = TraceStore(directory=directory)
+            loaded_trace = reader_store.get(trace.traceId)
+
+            self.assertIsNotNone(loaded_trace)
+            assert loaded_trace is not None
+            self.assertEqual(loaded_trace.traceId, trace.traceId)
+            self.assertEqual(loaded_trace.userRequest, "Check invoice INV-1001")
 
     def test_get_returns_none_for_missing_trace_id(self) -> None:
         trace_store = TraceStore()

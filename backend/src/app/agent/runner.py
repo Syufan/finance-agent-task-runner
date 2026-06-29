@@ -57,6 +57,7 @@ class AgentRunner:
     def run(self, user_request: str) -> AgentRunResult:
         """Run one agent workflow."""
         trace = AgentTrace(traceId=str(uuid4()),userRequest=user_request)
+        self._trace_store.save(trace)
         actions: list[str] = []
 
         # Create a request-specific context and validate the invoice ID
@@ -407,6 +408,7 @@ class AgentRunner:
                 "durationMs": duration_ms,
             }
         )
+        self._trace_store.save(trace)
 
     @staticmethod
     def _duration_ms(started_time: float) -> int:

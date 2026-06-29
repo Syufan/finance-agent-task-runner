@@ -2,6 +2,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.agent.planner import Planner
 from app.agent.runner import AgentRunner
@@ -25,6 +26,16 @@ class AppFactory:
             title="Finance Agent Task Runner",
             version="0.1.0",
         )
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[
+                "http://127.0.0.1:5173",
+                "http://localhost:5173",
+            ],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
         data_dir = Path(__file__).parent / "data"
         data_source = JsonDataSource(data_dir=data_dir)
@@ -43,7 +54,7 @@ class AppFactory:
         tool_registry.register(policy_lookup_tool)
 
         planner = Planner()
-        trace_store = TraceStore()
+        trace_store = TraceStore(directory=data_dir / "traces")
 
         agent_runner = AgentRunner(
             planner=planner,

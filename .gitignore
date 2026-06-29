@@ -14,6 +14,14 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
+# Frontend
+frontend/node_modules/
+frontend/.npm-cache/
+frontend/dist/
+
+# Runtime data
+backend/src/app/data/traces/*.json
+
 # Environment
 .env
 
