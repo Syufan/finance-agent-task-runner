@@ -111,11 +111,16 @@ class AgentRunner:
                     )
 
                 # Return a completed result when the workflow ends normally.
+                final_answer = self._build_final_answer(
+                    context=context,
+                    completion_message=action.message,
+                )
+
                 return self._finish_with_message(
                     trace=trace,
                     actions=actions,
                     status="completed",
-                    message=action.message or "",
+                    message=final_answer,
                 )
 
             # Run the requested tool, then decide again.
@@ -293,6 +298,72 @@ class AgentRunner:
         elif tool_name == "policy_lookup":
             context.policy_lookup_state = LookupState.FAILED
 
+    def _build_final_answer(
+        self,
+        context: AgentContext,
+        completion_message: str | None,
+    ) -> str:
+        """Build the final user-facing answer from the completed context."""
+        invoice = context.invoice
+
+        if invoice is None:
+            return completion_message or "The workflow completed without invoice details."
+
+        invoice_amount = f"{invoice.currency} {invoice.amount:,.0f}"
+        lines = [
+            f"Invoice {invoice.invoiceId} for {invoice.vendor} "
+            f"({invoice_amount}) has status: {invoice.status}.",
+        ]
+
+        if invoice.status == "paid":
+            lines.append("No further action is required.")
+
+        elif invoice.status == "blocked":
+            if context.purchase_order is not None:
+                purchase_order = context.purchase_order
+                po_amount = (
+                    f"{purchase_order.currency} "
+                    f"{purchase_order.amount:,.0f}"
+                )
+
+                lines.append(
+                    f"The invoice amount is {invoice_amount}, while "
+                    f"purchase order {purchase_order.poId} is {po_amount}."
+                )
+
+                lines.append(
+                    f"PO owner: {purchase_order.owner}."
+                )
+
+            if context.policy is not None:
+                policy = context.policy
+
+                lines.append(f"Policy: {policy.policy}")
+                lines.append(
+                    f"Recommended next step: {policy.recommendedAction}"
+                )
+
+        elif invoice.status == "pending_approval":
+            lines.append("The invoice is waiting for approval.")
+
+            if context.purchase_order is not None:
+                lines.append(
+                    f"PO owner: {context.purchase_order.owner}."
+                )
+
+            if context.policy is not None:
+                policy = context.policy
+
+                lines.append(f"Policy: {policy.policy}")
+                lines.append(
+                    f"Recommended next step: {policy.recommendedAction}"
+                )
+
+        if completion_message:
+            lines.append(completion_message)
+
+        return " ".join(lines)
+    
     def _finish_with_message(
         self,
         trace: AgentTrace,
@@ -303,7 +374,6 @@ class AgentRunner:
         """Save the trace and return the final run result."""
         trace.finalAnswer = message
         self._trace_store.save(trace)
-
         return AgentRunResult(
             status=status,
             finalAnswer=message,
