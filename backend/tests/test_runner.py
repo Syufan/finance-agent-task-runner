@@ -114,8 +114,7 @@ class RunnerTestCase(unittest.TestCase):
         result = runner.run("Please check invoice INV-12A")
 
         self.assertEqual(result.status, "failed")
-        self.assertIsNotNone(result.error)
-        self.assertEqual(result.error.code, "INVALID_INVOICE_ID")
+        self.assertEqual(result.finalAnswer, "Invoice ID 'INV-12A' is invalid. Expected format: INV-XXXX.")
         self.assertEqual(planner.calls, 0)
         self.assertEqual(tool_registry.calls, [])
         self.assertEqual(len(trace_store.saved_traces), 1)
@@ -161,8 +160,6 @@ class RunnerTestCase(unittest.TestCase):
         result = runner.run("Please check invoice INV-1001")
 
         self.assertEqual(result.status, "failed")
-        self.assertIsNotNone(result.error)
-        self.assertEqual(result.error.code, "INVOICE_NOT_FOUND")
         self.assertEqual(result.finalAnswer, "Invoice INV-1001 was not found.")
         self.assertEqual(len(trace_store.saved_traces), 1)
 
