@@ -19,15 +19,12 @@ class AgentContextTestCase(unittest.TestCase):
         self.assertIsNone(context.invoice_id)
         self.assertIsNone(context.invoice)
         self.assertEqual(context.invoice_lookup_state, LookupState.NOT_STARTED)
-        self.assertFalse(context.invoice_lookup_attempted)
 
         self.assertIsNone(context.purchase_order)
         self.assertEqual(context.po_lookup_state, LookupState.NOT_STARTED)
-        self.assertFalse(context.po_lookup_attempted)
 
         self.assertIsNone(context.policy)
         self.assertEqual(context.policy_lookup_state, LookupState.NOT_STARTED)
-        self.assertFalse(context.policy_lookup_attempted)
 
         self.assertIsNone(context.error)
 
