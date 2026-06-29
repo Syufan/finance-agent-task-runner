@@ -21,6 +21,7 @@ frontend/dist/
 
 # Runtime data
 backend/src/app/data/traces/*.json
+backend/src/app/data/evaluation/*.json
 
 # Environment
 .env
