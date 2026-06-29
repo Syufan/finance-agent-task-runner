@@ -356,6 +356,104 @@ class RunnerTestCase(unittest.TestCase):
         self.assertEqual(result.actions, ["invoice_lookup", "po_lookup", "policy_lookup"])
         self.assertEqual([step["toolName"] for step in trace_store.saved_traces[0].steps], ["invoice_lookup", "po_lookup", "policy_lookup"])
 
+    def test_build_final_answer_for_paid_invoice(self) -> None:
+        runner = AgentRunner(FakePlanner(NextAction(type=ActionType.FINISH)), FakeToolRegistry(), FakeTraceStore())
+        context = AgentContext(
+            invoice_id="INV-1003",
+            invoice=Invoice(
+                invoiceId="INV-1003",
+                vendor="Fast Office Supplies",
+                amount=800,
+                currency="EUR",
+                status="paid",
+                poId=None,
+                blockReason=None,
+            ),
+            invoice_lookup_state=LookupState.FOUND,
+        )
+
+        final_answer = runner._build_final_answer(context, completion_message=None)
+
+        self.assertIn("Invoice INV-1003", final_answer)
+        self.assertIn("status: paid", final_answer)
+        self.assertIn("No further action is required.", final_answer)
+
+    def test_build_final_answer_for_blocked_invoice_with_po_and_policy(self) -> None:
+        runner = AgentRunner(FakePlanner(NextAction(type=ActionType.FINISH)), FakeToolRegistry(), FakeTraceStore())
+        context = AgentContext(
+            invoice_id="INV-1001",
+            invoice=Invoice(
+                invoiceId="INV-1001",
+                vendor="ABC Logistics",
+                amount=12000,
+                currency="EUR",
+                status="blocked",
+                poId="PO-9001",
+                blockReason="PO_AMOUNT_MISMATCH",
+            ),
+            invoice_lookup_state=LookupState.FOUND,
+            purchase_order=PurchaseOrder(
+                poId="PO-9001",
+                amount=10000,
+                currency="EUR",
+                owner="john.smith@example.com",
+                status="active",
+            ),
+            po_lookup_state=LookupState.FOUND,
+            policy=Policy(
+                blockReason="PO_AMOUNT_MISMATCH",
+                policy="If invoice amount is higher than PO amount, requester must confirm whether the PO should be amended before payment can proceed.",
+                recommendedAction="Contact PO owner for confirmation.",
+            ),
+            policy_lookup_state=LookupState.FOUND,
+        )
+
+        final_answer = runner._build_final_answer(context, completion_message=None)
+
+        self.assertIn("Invoice INV-1001", final_answer)
+        self.assertIn("status: blocked", final_answer)
+        self.assertIn("purchase order PO-9001 is EUR 10,000", final_answer)
+        self.assertIn("PO owner: john.smith@example.com.", final_answer)
+        self.assertIn("Recommended next step: Contact PO owner for confirmation.", final_answer)
+
+    def test_build_final_answer_for_pending_approval_invoice(self) -> None:
+        runner = AgentRunner(FakePlanner(NextAction(type=ActionType.FINISH)), FakeToolRegistry(), FakeTraceStore())
+        context = AgentContext(
+            invoice_id="INV-1002",
+            invoice=Invoice(
+                invoiceId="INV-1002",
+                vendor="Blue Manufacturing",
+                amount=4500,
+                currency="USD",
+                status="pending_approval",
+                poId="PO-9002",
+                blockReason="APPROVAL_PENDING",
+            ),
+            invoice_lookup_state=LookupState.FOUND,
+            purchase_order=PurchaseOrder(
+                poId="PO-9002",
+                amount=4500,
+                currency="USD",
+                owner="approver@example.com",
+                status="pending",
+            ),
+            po_lookup_state=LookupState.FOUND,
+            policy=Policy(
+                blockReason="APPROVAL_PENDING",
+                policy="Invoices over threshold require approval.",
+                recommendedAction="Wait for approver decision.",
+            ),
+            policy_lookup_state=LookupState.FOUND,
+        )
+
+        final_answer = runner._build_final_answer(context, completion_message=None)
+
+        self.assertIn("Invoice INV-1002", final_answer)
+        self.assertIn("status: pending_approval", final_answer)
+        self.assertIn("The invoice is waiting for approval.", final_answer)
+        self.assertIn("PO owner: approver@example.com.", final_answer)
+        self.assertIn("Recommended next step: Wait for approver decision.", final_answer)
+
 
 if __name__ == "__main__":
     unittest.main()
