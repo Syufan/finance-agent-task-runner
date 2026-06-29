@@ -1,63 +1,163 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from enum import Enum
+
+from app.agent.context import AgentContext, LookupState
+from app.agent.errors import AgentError
 
 
 class ActionType(str, Enum):
     ASK_CLARIFICATION = "ask_clarification"
-    RETURN_VALIDATION_ERROR = "return_validation_error"
     CALL_TOOL = "call_tool"
-    STOP_WITH_ERROR = "stop_with_error"
     FINISH = "finish"
-    FINISH_WITH_PARTIAL_ANSWER = "finish_with_partial_answer"
 
 
 @dataclass
 class NextAction:
     type: ActionType
     tool_name: str | None = None
-    tool_input: dict | None = None
+    tool_input: dict[str, object] | None = None
     message: str | None = None
+    error: AgentError | None = None
 
 
 class Planner:
-    def decide(self, context):
-        pass
+    """
+    Reads the current AgentContext and decides the next workflow action.
 
+    The planner does not:
+    - call tools
+    - update context
+    - write trace records
+    - parse or validate invoice IDs
+    """
 
-# if no invoice ID was extracted:
-#     ASK_CLARIFICATION
+    def decide(self, context: AgentContext) -> NextAction:
+        # 1. Missing invoice ID:
+        # No tools should be called.
+        if context.invoice_id is None:
+            return NextAction(
+                type=ActionType.ASK_CLARIFICATION,
+                message=(
+                    "Please provide a valid invoice ID, "
+                    "for example INV-1001."
+                ),
+            )
 
-# elif invoice ID format is invalid:
-#     RETURN_VALIDATION_ERROR
+        # 2. Previous tool execution failure.
+        # Policy failure is special: return a partial answer instead of failing.
+        if context.error is not None:
+            if context.error.source == "policy_lookup":
+                return NextAction(
+                    type=ActionType.FINISH,
+                    message=(
+                        "Policy information is unavailable. "
+                        "Returning a partial answer based on the available "
+                        "invoice and purchase order information."
+                    ),
+                )
 
-# elif invoice has not been looked up:
-#     CALL invoice_lookup
+            return NextAction(
+                type=ActionType.FINISH,
+                error=context.error,
+            )
 
-# elif invoice lookup failed:
-#     STOP_WITH_ERROR
+        # 3. Invoice has not been looked up yet.
+        if context.invoice_lookup_state == LookupState.NOT_STARTED:
+            return NextAction(
+                type=ActionType.CALL_TOOL,
+                tool_name="invoice_lookup",
+                tool_input={"invoiceId": context.invoice_id},
+            )
 
-# elif invoice was not found:
-#     STOP_WITH_ERROR
+        # 4. Invoice lookup completed normally, but found no record.
+        if context.invoice_lookup_state == LookupState.NOT_FOUND:
+            return NextAction(
+                type=ActionType.FINISH,
+                error=AgentError(
+                    code="INVOICE_NOT_FOUND",
+                    message=f"Invoice {context.invoice_id} was not found.",
+                    source="invoice_lookup",
+                ),
+            )
 
-# elif invoice.status == paid:
-#     FINISH
+        # 5. Guard against impossible internal state.
+        if context.invoice is None:
+            return NextAction(
+                type=ActionType.FINISH,
+                error=AgentError(
+                    code="INCONSISTENT_WORKFLOW_STATE",
+                    message=(
+                        "Invoice lookup completed without an invoice result."
+                    ),
+                    source="planner",
+                ),
+            )
 
-# elif invoice has poId and PO has not been looked up:
-#     CALL po_lookup
+        invoice = context.invoice
 
-# elif PO lookup failed:
-#     STOP_WITH_ERROR
+        # 6. Paid invoices require no further investigation.
+        if invoice.status == "paid":
+            return NextAction(type=ActionType.FINISH)
 
-# elif invoice has blockReason and policy has not been looked up:
-#     CALL policy_lookup
+        # 7. A blocked or pending invoice with a PO needs PO investigation.
+        if (
+            invoice.poId is not None
+            and context.po_lookup_state == LookupState.NOT_STARTED
+        ):
+            return NextAction(
+                type=ActionType.CALL_TOOL,
+                tool_name="po_lookup",
+                tool_input={"poId": invoice.poId},
+            )
 
-# elif policy lookup failed or policy was not found:
-#     FINISH_WITH_PARTIAL_ANSWER
+        # 8. PO was requested but not found.
+        if (
+            invoice.poId is not None
+            and context.po_lookup_state == LookupState.NOT_FOUND
+        ):
+            return NextAction(
+                type=ActionType.FINISH,
+                error=AgentError(
+                    code="PURCHASE_ORDER_NOT_FOUND",
+                    message=(
+                        f"Purchase order {invoice.poId} was not found."
+                    ),
+                    source="po_lookup",
+                ),
+            )
 
-# elif invoice.status in {blocked, pending_approval}:
-#     FINISH
+        # 9. A block reason requires a policy lookup.
+        if (
+            invoice.blockReason is not None
+            and context.policy_lookup_state == LookupState.NOT_STARTED
+        ):
+            return NextAction(
+                type=ActionType.CALL_TOOL,
+                tool_name="policy_lookup",
+                tool_input={"blockReason": invoice.blockReason},
+            )
 
-# else:
-#     STOP_WITH_ERROR
+        # 10. Policy lookup completed normally, but no matching policy exists.
+        if context.policy_lookup_state == LookupState.NOT_FOUND:
+            return NextAction(
+                type=ActionType.FINISH,
+                message=(
+                    f"No policy was found for '{invoice.blockReason}'. "
+                    "Returning a partial answer; please verify the policy "
+                    "manually."
+                ),
+            )
+
+        # 11. Enough information has been gathered.
+        if invoice.status in {"blocked", "pending_approval"}:
+            return NextAction(type=ActionType.FINISH)
+
+        # 12. Any unrecognised state is treated as a controlled failure.
+        return NextAction(
+            type=ActionType.FINISH,
+            error=AgentError(
+                code="UNEXPECTED_WORKFLOW_STATE",
+                message="The invoice workflow reached an unexpected state.",
+                source="planner",
+            ),
+        )
